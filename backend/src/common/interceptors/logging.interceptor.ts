@@ -2,11 +2,6 @@
  * @fileoverview Logging Interceptor
  * @description Logs incoming requests and outgoing responses with timing
  * @module common/interceptors/logging
- * 
- * Design Pattern: Interceptor Pattern
- * - Provides cross-cutting logging concerns
- * - Measures request/response timing for performance monitoring
- * - Useful for debugging and production monitoring
  */
 
 import {

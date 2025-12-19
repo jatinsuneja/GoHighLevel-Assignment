@@ -2,11 +2,6 @@
  * @fileoverview Transform Interceptor
  * @description Transforms all successful responses into a standardized format
  * @module common/interceptors/transform
- * 
- * Design Pattern: Interceptor Pattern
- * - Intercepts outgoing responses before they are sent to the client
- * - Wraps the response data in a consistent structure
- * - Provides uniform API response format across all endpoints
  */
 
 import {
