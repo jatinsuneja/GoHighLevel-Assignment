@@ -1,0 +1,12 @@
+{
+  "name": "gohighlevel-assignment",
+  "private": true,
+  "devDependencies": {
+    "@commitlint/config-conventional": "latest",
+    "@commitlint/cli": "latest",
+    "husky": "latest"
+  },
+  "scripts": {
+    "prepare": "husky"
+  }
+}
