@@ -104,6 +104,24 @@ export class InvalidRoomCodeException extends BusinessException {
 }
 
 /**
+ * User Not In Room Exception
+ *
+ * @description Thrown when a user attempts to perform an action in a room they're not part of
+ *
+ * @example
+ * throw new UserNotInRoomException('user-uuid', 'room-uuid');
+ */
+export class UserNotInRoomException extends BusinessException {
+  constructor(userId: string, roomId: string) {
+    super(
+      'USER_NOT_IN_ROOM',
+      `User '${userId}' is not a participant of room '${roomId}'`,
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+/**
  * Session Not Found Exception
  *
  * @description Thrown when the session ID is missing or invalid
