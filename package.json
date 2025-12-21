@@ -2,11 +2,14 @@
   "name": "gohighlevel-assignment",
   "private": true,
   "devDependencies": {
-    "@commitlint/config-conventional": "latest",
     "@commitlint/cli": "latest",
+    "@commitlint/config-conventional": "latest",
     "husky": "latest"
   },
   "scripts": {
     "prepare": "husky"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.39.2"
   }
 }

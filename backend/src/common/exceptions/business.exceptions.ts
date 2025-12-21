@@ -156,3 +156,39 @@ export class UnauthorizedActionException extends BusinessException {
     );
   }
 }
+
+/**
+ * Message Not Found Exception
+ *
+ * @description Thrown when a message with the specified ID doesn't exist
+ *
+ * @example
+ * throw new MessageNotFoundException('message-uuid');
+ */
+export class MessageNotFoundException extends BusinessException {
+  constructor(messageId: string) {
+    super(
+      'MESSAGE_NOT_FOUND',
+      `Message with ID '${messageId}' not found`,
+      HttpStatus.NOT_FOUND,
+    );
+  }
+}
+
+/**
+ * Duplicate Reaction Exception
+ *
+ * @description Thrown when a user attempts to add a reaction they've already added
+ *
+ * @example
+ * throw new DuplicateReactionException('like');
+ */
+export class DuplicateReactionException extends BusinessException {
+  constructor(reactionType: string) {
+    super(
+      'DUPLICATE_REACTION',
+      `You have already reacted with '${reactionType}' to this message`,
+      HttpStatus.CONFLICT,
+    );
+  }
+}
