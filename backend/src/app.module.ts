@@ -15,14 +15,17 @@ import { MessageModule } from './modules/message/message.module';
 import { SessionModule } from './modules/session/session.module';
 import { HistoryModule } from './modules/history/history.module';
 
-// Health Controller
-import { HealthController } from './health.controller';
+// Gateway Module
+import { ChatGatewayModule } from './gateways/chat-gateway.module';
 
 // Queue Module
 import { QueueModule } from './queues/queue.module';
 
 // Redis Module
 import { RedisModule } from './config/redis.module';
+
+// Health Controller
+import { HealthController } from './health.controller';
 
 /**
  * Root Application Module
@@ -33,6 +36,7 @@ import { RedisModule } from './config/redis.module';
  * - Redis connection for caching and Pub/Sub
  * - BullMQ for job queue processing
  * - Feature modules for business logic
+ * - WebSocket gateway for real-time communication
  */
 @Module({
   imports: [
@@ -90,6 +94,9 @@ import { RedisModule } from './config/redis.module';
     MessageModule,
     SessionModule,
     HistoryModule,
+
+    // WebSocket gateway module
+    ChatGatewayModule,
 
     // Background job processing module
     QueueModule,
