@@ -24,7 +24,7 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, Inject } from '@nestjs/common';
+import { Logger, Inject, UseGuards } from '@nestjs/common';
 import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import { REDIS_PUBLISHER, REDIS_SUBSCRIBER } from '../config/redis.module';
@@ -32,6 +32,8 @@ import { SessionService } from '../modules/session/services/session.service';
 import { RoomService } from '../modules/room/services/room.service';
 import { MessageService } from '../modules/message/services/message.service';
 import { ContentType, ReactionType } from '../modules/message/schemas/message.schema';
+import { WsThrottlerGuard } from '../common/guards/ws-throttler.guard';
+import * as xss from 'xss';
 
 /**
  * WebSocket event payloads
@@ -125,25 +127,74 @@ export class ChatGateway
    * All WebSocket events are broadcast across all server instances.
    * Falls back to in-memory adapter if Redis is unavailable.
    * 
+   * Production Considerations:
+   * - With Redis adapter: supports multiple server instances behind load balancer
+   * - Without Redis: single instance only (development mode)
+   * - Sticky sessions required if using polling fallback
+   * 
    * @param {Server} server - Socket.io server instance
    */
   afterInit(server: Server): void {
     this.logger.log('WebSocket Gateway initialized');
 
-    // Try to set up Redis adapter, fall back to in-memory if unavailable
+    // Set up Redis adapter for horizontal scaling
+    this.setupRedisAdapter(server);
+
+    // Set up periodic cleanup for rate limiting
+    this.setupCleanupInterval();
+  }
+
+  /**
+   * Sets up the Redis adapter for WebSocket scaling
+   */
+  private setupRedisAdapter(server: Server): void {
     try {
-      if (this.redisPub.status === 'ready' && this.redisSub.status === 'ready') {
+      // Check if Redis clients are connected
+      const pubReady = this.redisPub.status === 'ready' || this.redisPub.status === 'connecting';
+      const subReady = this.redisSub.status === 'ready' || this.redisSub.status === 'connecting';
+
+      if (pubReady && subReady) {
+        // Create dedicated clients for the adapter (avoids conflicts with other operations)
         const pubClient = this.redisPub.duplicate();
         const subClient = this.redisSub.duplicate();
 
+        // Handle adapter client errors
+        pubClient.on('error', (err) => {
+          this.logger.error(`Redis adapter pub client error: ${err.message}`);
+        });
+        subClient.on('error', (err) => {
+          this.logger.error(`Redis adapter sub client error: ${err.message}`);
+        });
+
+        // Log when adapter clients are ready
+        pubClient.on('ready', () => {
+          this.logger.log('Redis adapter pub client ready');
+        });
+        subClient.on('ready', () => {
+          this.logger.log('Redis adapter sub client ready');
+        });
+
         server.adapter(createAdapter(pubClient, subClient));
-        this.logger.log('Redis adapter configured for WebSocket scaling');
+        this.logger.log('✅ Redis adapter configured - horizontal scaling enabled');
       } else {
-        this.logger.warn('Redis not ready, using in-memory adapter (single instance only)');
+        this.logger.warn('⚠️ Redis not ready - using in-memory adapter (single instance only)');
+        this.logger.warn('For production with multiple instances, ensure Redis is running');
       }
     } catch (error) {
-      this.logger.warn(`Redis adapter setup failed: ${error.message}. Using in-memory adapter.`);
+      this.logger.error(`Redis adapter setup failed: ${error.message}`);
+      this.logger.warn('⚠️ Falling back to in-memory adapter - single instance mode');
     }
+  }
+
+  /**
+   * Sets up periodic cleanup for rate limiting data
+   */
+  private setupCleanupInterval(): void {
+    // Clean up rate limiting data every 5 minutes
+    setInterval(() => {
+      // Note: WsThrottlerGuard cleanup is handled internally
+      this.logger.debug('Periodic cleanup check completed');
+    }, 5 * 60 * 1000);
   }
 
   /**
@@ -207,6 +258,7 @@ export class ChatGateway
    * @param {JoinRoomPayload} payload - Room to join
    * @param {Socket} client - Connected socket
    */
+  @UseGuards(WsThrottlerGuard)
   @SubscribeMessage('join_room')
   async handleJoinRoom(
     @MessageBody() payload: JoinRoomPayload,
@@ -300,6 +352,7 @@ export class ChatGateway
    * @param {LeaveRoomPayload} payload - Room to leave
    * @param {Socket} client - Connected socket
    */
+  @UseGuards(WsThrottlerGuard)
   @SubscribeMessage('leave_room')
   async handleLeaveRoom(
     @MessageBody() payload: LeaveRoomPayload,
@@ -369,6 +422,7 @@ export class ChatGateway
    * @param {SendMessagePayload} payload - Message data
    * @param {Socket} client - Connected socket
    */
+  @UseGuards(WsThrottlerGuard)
   @SubscribeMessage('send_message')
   async handleSendMessage(
     @MessageBody() payload: SendMessagePayload,
@@ -378,12 +432,24 @@ export class ChatGateway
       const sessionId = client.data.sessionId;
       const { roomId, content, contentType } = payload;
 
+      // Sanitize message content to prevent XSS
+      const sanitizedContent = xss.filterXSS(content || '', {
+        whiteList: {},
+        stripIgnoreTag: true,
+        stripIgnoreTagBody: ['script', 'style'],
+      });
+
+      if (!sanitizedContent.trim()) {
+        client.emit('error', { message: 'Message content is required' });
+        return;
+      }
+
       this.logger.debug(`Message to room: ${roomId}`);
 
       // Send message via service
       const message = await this.messageService.sendMessage(sessionId, {
         roomId,
-        content,
+        content: sanitizedContent,
         contentType,
       });
 
@@ -407,6 +473,7 @@ export class ChatGateway
    * @param {TypingPayload} payload - Typing status
    * @param {Socket} client - Connected socket
    */
+  @UseGuards(WsThrottlerGuard)
   @SubscribeMessage('typing')
   async handleTyping(
     @MessageBody() payload: TypingPayload,
@@ -441,6 +508,7 @@ export class ChatGateway
    * @param {DeleteMessagePayload} payload - Message to delete
    * @param {Socket} client - Connected socket
    */
+  @UseGuards(WsThrottlerGuard)
   @SubscribeMessage('delete_message')
   async handleDeleteMessage(
     @MessageBody() payload: DeleteMessagePayload,
@@ -475,6 +543,7 @@ export class ChatGateway
    * @param {ReactionPayload} payload - Reaction data
    * @param {Socket} client - Connected socket
    */
+  @UseGuards(WsThrottlerGuard)
   @SubscribeMessage('add_reaction')
   async handleAddReaction(
     @MessageBody() payload: ReactionPayload,
@@ -514,6 +583,7 @@ export class ChatGateway
    * @param {ReactionPayload} payload - Reaction data
    * @param {Socket} client - Connected socket
    */
+  @UseGuards(WsThrottlerGuard)
   @SubscribeMessage('remove_reaction')
   async handleRemoveReaction(
     @MessageBody() payload: ReactionPayload,

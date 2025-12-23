@@ -19,3 +19,10 @@ export * from './interceptors/logging.interceptor';
 
 // Exceptions
 export * from './exceptions/business.exceptions';
+
+// Pipes
+export * from './pipes/sanitize.pipe';
+
+// Guards
+export * from './guards/throttler.guard';
+export * from './guards/ws-throttler.guard';

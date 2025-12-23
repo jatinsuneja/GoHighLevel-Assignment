@@ -30,8 +30,18 @@ export const useRoomStore = defineStore('room', () => {
     isLoading.value = true
     error.value = null
     try {
-      const response = await roomApi.create({ displayName })
-      return response.roomCode
+      const createResponse = await roomApi.create({ displayName })
+      
+      // After creation, join the room to set currentRoom state
+      // This ensures the user is properly registered in the room
+      const joinResponse = await roomApi.join({ 
+        roomCode: createResponse.roomCode, 
+        displayName 
+      })
+      currentRoom.value = joinResponse
+      participants.value = joinResponse.participants
+      
+      return createResponse.roomCode
     } catch (err) {
       error.value = (err as Error).message
       throw err

@@ -7,10 +7,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { SanitizePipe } from './common/pipes/sanitize.pipe';
 
 /**
  * Bootstrap the NestJS application
@@ -46,11 +48,39 @@ async function bootstrap(): Promise<void> {
     origin: corsOrigins.split(','),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Request-Id'],
+    exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
+    maxAge: 86400, // 24 hours
   });
+
+  // Security headers with Helmet
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          connectSrc: ["'self'", 'ws:', 'wss:'],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"],
+        },
+      },
+      crossOriginEmbedderPolicy: false, // Disable for WebSocket compatibility
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    }),
+  );
 
   // Apply global validation pipe
   // Automatically validates incoming DTOs using class-validator decorators
   app.useGlobalPipes(
+    // Sanitization pipe - XSS protection (runs first)
+    new SanitizePipe(),
+    // Validation pipe - DTO validation (runs second)
     new ValidationPipe({
       whitelist: true,           // Strip non-whitelisted properties
       forbidNonWhitelisted: true, // Throw error on non-whitelisted properties

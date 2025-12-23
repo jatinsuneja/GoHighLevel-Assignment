@@ -8,6 +8,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bullmq';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 // Feature Modules
 import { RoomModule } from './modules/room/room.module';
@@ -27,6 +29,9 @@ import { RedisModule } from './config/redis.module';
 // Health Controller
 import { HealthController } from './health.controller';
 
+// Security Guards
+import { CustomThrottlerGuard } from './common/guards/throttler.guard';
+
 /**
  * Root Application Module
  *
@@ -45,6 +50,32 @@ import { HealthController } from './health.controller';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env', '.env.local'],
+    }),
+
+    // Rate limiting with Throttler
+    // Protects against brute force and DoS attacks
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        throttlers: [
+          {
+            name: 'short',
+            ttl: 1000, // 1 second
+            limit: configService.get<number>('THROTTLE_SHORT_LIMIT', 10),
+          },
+          {
+            name: 'medium',
+            ttl: 10000, // 10 seconds
+            limit: configService.get<number>('THROTTLE_MEDIUM_LIMIT', 50),
+          },
+          {
+            name: 'long',
+            ttl: 60000, // 1 minute
+            limit: configService.get<number>('THROTTLE_LONG_LIMIT', 200),
+          },
+        ],
+      }),
+      inject: [ConfigService],
     }),
 
     // MongoDB connection with Mongoose
@@ -102,6 +133,12 @@ import { HealthController } from './health.controller';
     QueueModule,
   ],
   controllers: [HealthController],
-  providers: [],
+  providers: [
+    // Apply rate limiting globally to all HTTP routes
+    {
+      provide: APP_GUARD,
+      useClass: CustomThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
