@@ -1,0 +1,40 @@
+# Docker Compose - Development Override
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Enables:
+#   - Volume mounts for hot reloading
+#   - Development environment variables
+#   - Exposed debug ports
+
+version: '3.8'
+
+services:
+  # ============================================
+  # Backend with hot reload
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      DEBUG: "*"
+    command: npm run start:dev
+
+  # ============================================
+  # Frontend with hot reload
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      VITE_API_URL: http://localhost:4000/api
+      VITE_SOCKET_URL: http://localhost:4000
+    command: npm run dev -- --host 0.0.0.0
