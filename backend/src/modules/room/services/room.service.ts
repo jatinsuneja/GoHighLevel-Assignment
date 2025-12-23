@@ -10,10 +10,11 @@
  * - Decoupled from data access and presentation layers
  */
 
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, forwardRef } from '@nestjs/common';
 import Redis from 'ioredis';
 import { REDIS_CLIENT } from '../../../config/redis.module';
 import { RoomRepository } from '../repositories/room.repository';
+import { SessionService } from '../../session/services/session.service';
 import { RoomDocument, RoomStatus, Participant } from '../schemas/room.schema';
 import { CreateRoomDto, JoinRoomDto } from '../dto/room.dto';
 import { generateId } from '../../../common/utils/uuid.util';
@@ -60,6 +61,8 @@ export class RoomService {
 
   constructor(
     private readonly roomRepository: RoomRepository,
+    @Inject(forwardRef(() => SessionService))
+    private readonly sessionService: SessionService,
     @Inject(REDIS_CLIENT)
     private readonly redisClient: Redis,
   ) {}
@@ -100,6 +103,9 @@ export class RoomService {
 
     // Cache room for quick lookup
     await this.cacheRoom(room);
+
+    // Add room to user's chat history
+    await this.sessionService.addToHistory(sessionId, room._id.toString());
 
     this.logger.log(`Room created successfully: ${room.roomCode}`);
     return room;
@@ -167,6 +173,8 @@ export class RoomService {
         );
         await this.cacheRoom(room!);
       }
+      // Ensure room is in user's history (re-add if previously deleted)
+      await this.sessionService.addToHistory(sessionId, room!._id.toString());
       return room!;
     }
 
@@ -196,6 +204,9 @@ export class RoomService {
 
     // Update cache
     await this.cacheRoom(updatedRoom);
+
+    // Add room to user's chat history
+    await this.sessionService.addToHistory(sessionId, updatedRoom._id.toString());
 
     this.logger.log(`User ${userId} joined room ${dto.roomCode}`);
     return updatedRoom;

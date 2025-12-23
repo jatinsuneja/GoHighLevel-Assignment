@@ -107,10 +107,15 @@ export interface ChatHistoryItem {
   status: 'active' | 'closed'
   isArchived: boolean
   createdAt: string
+  messageCount: number
+  unreadCount: number
 }
 
 export interface ChatHistoryResponse {
   chats: ChatHistoryItem[]
+  total: number
+  archivedCount: number
+  activeCount: number
 }
 
 export interface GetHistoryQuery {
@@ -121,11 +126,13 @@ export interface GetHistoryQuery {
 export interface ArchiveChatResponse {
   roomId: string
   isArchived: boolean
+  updatedAt: string
 }
 
 export interface DeleteChatResponse {
   roomId: string
   deleted: boolean
+  deletedAt: string
 }
 
 // Generic API Response wrapper
