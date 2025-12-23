@@ -145,7 +145,7 @@ function toggleReaction(type: ReactionType) {
 
       <!-- Reactions display -->
       <div
-        v-if="visibleReactions.length > 0"
+        v-if="!message.isDeleted && visibleReactions.length > 0"
         class="flex flex-wrap gap-1 mt-1"
         :class="isOwn ? 'justify-end' : 'justify-start'"
       >
