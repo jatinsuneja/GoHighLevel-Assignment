@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { HomeView} from '@/views'
+import { HomeView, ChatView, HistoryView } from '@/views'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -12,22 +12,22 @@ const router = createRouter({
         title: 'AnonChat - Anonymous Chat',
       },
     },
-    // {
-    //   path: '/chat/:roomCode',
-    //   name: 'chat',
-    //   component: ChatView,
-    //   meta: {
-    //     title: 'AnonChat - Chat Room',
-    //   },
-    // },
-    // {
-    //   path: '/history',
-    //   name: 'history',
-    //   component: HistoryView,
-    //   meta: {
-    //     title: 'AnonChat - Chat History',
-    //   },
-    // },
+    {
+      path: '/room/:roomCode',
+      name: 'chat',
+      component: ChatView,
+      meta: {
+        title: 'Chat Room - AnonChat',
+      },
+    },
+    {
+      path: '/history',
+      name: 'history',
+      component: HistoryView,
+      meta: {
+        title: 'Chat History - AnonChat',
+      },
+    },
     {
       // Catch-all redirect to home
       path: '/:pathMatch(.*)*',

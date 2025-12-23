@@ -38,8 +38,15 @@ apiClient.interceptors.response.use(
   },
   (error: AxiosError) => {
     // Extract error message from response
-    const responseData = error.response?.data as { message?: string; data?: { message?: string } } | undefined
+    // Backend error format: { success: false, error: { code, message, details, ... } }
+    const responseData = error.response?.data as { 
+      message?: string
+      error?: { message?: string; code?: string }
+      data?: { message?: string } 
+    } | undefined
+    
     const message =
+      responseData?.error?.message ||
       responseData?.message ||
       responseData?.data?.message ||
       error.message ||
@@ -48,9 +55,11 @@ apiClient.interceptors.response.use(
     // Create a more informative error
     const enhancedError = new Error(message) as Error & {
       statusCode?: number
+      errorCode?: string
       originalError?: AxiosError
     }
     enhancedError.statusCode = error.response?.status
+    enhancedError.errorCode = responseData?.error?.code
     enhancedError.originalError = error
 
     return Promise.reject(enhancedError)

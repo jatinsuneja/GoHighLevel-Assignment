@@ -23,9 +23,7 @@ export const useRoomStore = defineStore('room', () => {
     return participants.value.find((p) => p.isActive) || null
   })
 
-  const activeParticipants = computed(() =>
-    participants.value.filter((p) => p.isActive)
-  )
+  const activeParticipants = computed(() => participants.value.filter((p) => p.isActive))
 
   // Actions
   async function createRoom(displayName: string): Promise<string> {
@@ -42,10 +40,7 @@ export const useRoomStore = defineStore('room', () => {
     }
   }
 
-  async function joinRoom(
-    roomCode: string,
-    displayName: string
-  ): Promise<RoomResponse> {
+  async function joinRoom(roomCode: string, displayName: string): Promise<RoomResponse> {
     isLoading.value = true
     error.value = null
     try {
@@ -96,10 +91,21 @@ export const useRoomStore = defineStore('room', () => {
   async function leaveRoom(): Promise<void> {
     if (!currentRoom.value) return
 
+    const roomIdToLeave = currentRoom.value.roomId
+
     isLoading.value = true
     error.value = null
     try {
-      await roomApi.leave(currentRoom.value.roomId)
+      // Emit socket leave_room event first (before clearing room state)
+      // This is imported lazily to avoid circular dependencies
+      const { getSocket } = await import('@/services/socket')
+      const socket = getSocket()
+      if (socket.connected) {
+        socket.emit('leave_room', { roomId: roomIdToLeave })
+      }
+
+      // Then call REST API
+      await roomApi.leave(roomIdToLeave)
       clearRoom()
     } catch (err) {
       error.value = (err as Error).message
@@ -119,9 +125,7 @@ export const useRoomStore = defineStore('room', () => {
   }
 
   function addParticipant(participant: Participant) {
-    const exists = participants.value.find(
-      (p) => p.userId === participant.userId
-    )
+    const exists = participants.value.find((p) => p.userId === participant.userId)
     if (!exists) {
       participants.value.push(participant)
     } else {

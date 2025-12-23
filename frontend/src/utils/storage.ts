@@ -1,5 +1,6 @@
 const SESSION_ID_KEY = 'chat_session_id'
 const DISPLAY_NAME_KEY = 'chat_display_name'
+const USER_ID_KEY = 'chat_user_id'
 
 /**
  * Generate a random session ID
@@ -46,4 +47,25 @@ export function setDisplayName(name: string): void {
  */
 export function clearDisplayName(): void {
   localStorage.removeItem(DISPLAY_NAME_KEY)
+}
+
+/**
+ * Get the saved user ID
+ */
+export function getUserId(): string | null {
+  return localStorage.getItem(USER_ID_KEY)
+}
+
+/**
+ * Save the user ID
+ */
+export function setUserId(id: string): void {
+  localStorage.setItem(USER_ID_KEY, id)
+}
+
+/**
+ * Clear the user ID
+ */
+export function clearUserId(): void {
+  localStorage.removeItem(USER_ID_KEY)
 }

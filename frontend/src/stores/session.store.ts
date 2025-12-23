@@ -1,11 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getSessionId, getDisplayName, setDisplayName } from '@/utils/storage'
+import { getSessionId, getDisplayName, setDisplayName, getUserId, setUserId as saveUserId, clearUserId } from '@/utils/storage'
 
 export const useSessionStore = defineStore('session', () => {
-  // State
+  // State - load userId from storage on init
   const sessionId = ref<string>(getSessionId())
-  const userId = ref<string | null>(null)
+  const userId = ref<string | null>(getUserId())
   const displayName = ref<string>(getDisplayName() || '')
 
   // Getters
@@ -15,6 +15,7 @@ export const useSessionStore = defineStore('session', () => {
   // Actions
   function setUserId(id: string) {
     userId.value = id
+    saveUserId(id) // Persist to localStorage
   }
 
   function updateDisplayName(name: string) {
@@ -24,6 +25,7 @@ export const useSessionStore = defineStore('session', () => {
 
   function clearUser() {
     userId.value = null
+    clearUserId() // Clear from localStorage
   }
 
   return {

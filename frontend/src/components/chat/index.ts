@@ -1,0 +1,6 @@
+export { default as ChatHeader } from './ChatHeader.vue'
+export { default as MessageList } from './MessageList.vue'
+export { default as MessageBubble } from './MessageBubble.vue'
+export { default as MessageInput } from './MessageInput.vue'
+export { default as ReactionPicker } from './ReactionPicker.vue'
+export { default as TypingIndicator } from './TypingIndicator.vue'

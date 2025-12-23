@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { DefaultLayout } from '@/layouts'
 import { Button, Input } from '@/components/ui'
 import { useSessionStore, useRoomStore, useNotificationStore } from '@/stores'
 import { ROOM_CODE_LENGTH } from '@/utils/constants'
 
 const router = useRouter()
+const route = useRoute()
 const sessionStore = useSessionStore()
 const roomStore = useRoomStore()
 const notificationStore = useNotificationStore()
@@ -93,6 +94,18 @@ async function handleJoin() {
     isJoining.value = false
   }
 }
+
+// Check for room code in URL query params (from shared links)
+onMounted(() => {
+  const joinCode = route.query.join as string
+  if (joinCode) {
+    roomCode.value = joinCode.toUpperCase().replace(/[^A-Z0-9]/g, '')
+    activeTab.value = 'join'
+    notificationStore.info('Enter your name to join the room')
+    // Clear the query param from URL without navigation
+    router.replace({ path: '/', query: {} })
+  }
+})
 </script>
 
 <template>

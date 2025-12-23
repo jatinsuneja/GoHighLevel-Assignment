@@ -15,6 +15,9 @@ import { MessageModule } from './modules/message/message.module';
 import { SessionModule } from './modules/session/session.module';
 import { HistoryModule } from './modules/history/history.module';
 
+// Chat Gateway Module
+import { ChatGatewayModule } from './gateways/chat-gateway.module';
+
 // Health Controller
 import { HealthController } from './health.controller';
 
@@ -90,6 +93,9 @@ import { RedisModule } from './config/redis.module';
     MessageModule,
     SessionModule,
     HistoryModule,
+
+    // WebSocket gateway module
+    ChatGatewayModule,
 
     // Background job processing module
     QueueModule,
