@@ -2,7 +2,7 @@
 import { ref, watch, onUnmounted } from 'vue'
 import EmojiPicker from 'vue3-emoji-picker'
 import 'vue3-emoji-picker/css'
-import { Button } from '@/components/ui'
+import { Button } from '@/components/atoms'
 import { useChatStore, useRoomStore, useNotificationStore } from '@/stores'
 import { MAX_MESSAGE_LENGTH, TYPING_DEBOUNCE } from '@/utils/constants'
 import { getSocket } from '@/services/socket'
@@ -102,7 +102,9 @@ function insertEmoji(emoji: { i: string }) {
 }
 
 function toggleEmojiPicker() {
+  console.log('Toggle emoji picker, current:', showEmojiPicker.value)
   showEmojiPicker.value = !showEmojiPicker.value
+  console.log('After toggle:', showEmojiPicker.value)
 }
 
 onUnmounted(() => {
@@ -113,7 +115,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="border-t border-slate-200 bg-white p-4">
+  <div class="relative border-t border-slate-200 bg-white p-4">
     <!-- Emoji Picker -->
     <Transition
       enter-active-class="transition-all duration-200"
@@ -125,7 +127,7 @@ onUnmounted(() => {
     >
       <div
         v-if="showEmojiPicker"
-        class="absolute bottom-full left-0 right-0 mb-2 px-4"
+        class="absolute bottom-full left-0 right-0 mb-2 px-4 z-50"
       >
         <div class="max-w-md mx-auto">
           <EmojiPicker

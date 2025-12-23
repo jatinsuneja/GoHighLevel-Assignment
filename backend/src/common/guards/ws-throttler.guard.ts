@@ -34,14 +34,14 @@ export class WsThrottlerGuard implements CanActivate {
   
   // Rate limit configuration per event type
   private readonly limits: Record<string, { max: number; windowMs: number }> = {
-    send_message: { max: 10, windowMs: 10000 }, // 10 messages per 10 seconds
-    typing: { max: 20, windowMs: 10000 }, // 20 typing events per 10 seconds
+    send_message: { max: 25, windowMs: 10000 }, // 25 messages per 10 seconds
+    typing: { max: 50, windowMs: 10000 }, // 50 typing events per 10 seconds
     add_reaction: { max: 15, windowMs: 10000 }, // 15 reactions per 10 seconds
     remove_reaction: { max: 15, windowMs: 10000 },
     delete_message: { max: 5, windowMs: 10000 }, // 5 deletes per 10 seconds
-    join_room: { max: 5, windowMs: 60000 }, // 5 joins per minute
-    leave_room: { max: 5, windowMs: 60000 },
-    default: { max: 30, windowMs: 10000 }, // Default: 30 events per 10 seconds
+    join_room: { max: 10, windowMs: 60000 }, // 10 joins per minute
+    leave_room: { max: 10, windowMs: 60000 },
+    default: { max: 100, windowMs: 10000 }, // Default: 100 events per 10 seconds
   };
 
   // In-memory storage (use Redis in production for horizontal scaling)
@@ -49,7 +49,7 @@ export class WsThrottlerGuard implements CanActivate {
   
   // Blocked clients (exceeded rate limit)
   private readonly blockedClients: Map<string, number> = new Map();
-  private readonly BLOCK_DURATION_MS = 30000; // 30 second block
+  private readonly BLOCK_DURATION_MS = 10000; // 10 second block
 
   /**
    * Check if the WebSocket event should be allowed

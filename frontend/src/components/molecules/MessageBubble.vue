@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Message, ReactionType } from '@/types'
-import { Avatar } from '@/components/ui'
+import { Avatar } from '@/components/atoms'
 import { formatMessageTime } from '@/utils/formatters'
 import { REACTION_EMOJIS } from '@/utils/constants'
 import ReactionPicker from './ReactionPicker.vue'

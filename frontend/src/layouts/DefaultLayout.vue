@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, useRoute } from 'vue-router'
-import { ToastContainer } from '@/components/ui'
+import { ToastContainer } from '@/components/molecules'
 
 const route = useRoute()
 </script>

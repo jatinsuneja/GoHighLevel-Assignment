@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Avatar, Badge, Button } from '@/components/ui'
+import { Avatar, Badge, Button } from '@/components/atoms'
 import { useRoomStore, useSessionStore, useNotificationStore } from '@/stores'
 
 const router = useRouter()

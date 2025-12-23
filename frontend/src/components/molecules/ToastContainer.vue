@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useNotificationStore } from '@/stores'
-import Toast from './Toast.vue'
+import { Toast } from '@/components/atoms'
 
 const notificationStore = useNotificationStore()
 </script>

@@ -160,6 +160,41 @@ export class RoomController {
   }
 
   /**
+   * Closes a room permanently
+   * 
+   * @route POST /rooms/:roomId/close
+   * @param {string} sessionId - Session ID from X-Session-Id header
+   * @param {string} roomId - Room UUID from URL parameter
+   * @returns {Promise<RoomResponseDto>} Closed room details
+   * 
+   * @example
+   * // Request
+   * POST /api/v1/rooms/xxx/close
+   * Headers: { "X-Session-Id": "session-uuid" }
+   * 
+   * // Response 200
+   * {
+   *   "roomId": "019123ab-cdef-7000-8000-000000000001",
+   *   "status": "closed",
+   *   "closedAt": "2025-12-23T10:00:00.000Z"
+   * }
+   */
+  @Post(':roomId/close')
+  @HttpCode(HttpStatus.OK)
+  async closeRoom(
+    @Headers('x-session-id') sessionId: string,
+    @Param('roomId') roomId: string,
+  ): Promise<RoomResponseDto> {
+    this.validateSessionId(sessionId);
+
+    this.logger.log(`Closing room ${roomId} for session: ${sessionId.slice(0, 8)}...`);
+
+    const room = await this.roomService.closeRoom(sessionId, roomId);
+
+    return this.mapToRoomResponse(room);
+  }
+
+  /**
    * Gets room details by ID
    * 
    * @route GET /rooms/:roomId

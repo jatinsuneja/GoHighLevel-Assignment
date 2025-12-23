@@ -2,8 +2,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import type { Message, ReactionType } from '@/types'
 import { useSessionStore, useChatStore } from '@/stores'
-import MessageBubble from './MessageBubble.vue'
-import TypingIndicator from './TypingIndicator.vue'
+import { MessageBubble, TypingIndicator } from '@/components/molecules'
 import { getMessageDateGroup } from '@/utils/formatters'
 
 const sessionStore = useSessionStore()

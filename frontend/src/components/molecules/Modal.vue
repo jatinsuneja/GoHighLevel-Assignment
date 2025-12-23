@@ -6,12 +6,14 @@ interface Props {
   title?: string
   size?: 'sm' | 'md' | 'lg'
   closable?: boolean
+  showHeader?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: '',
   size: 'md',
   closable: true,
+  showHeader: true,
 })
 
 const emit = defineEmits<{
@@ -88,7 +90,7 @@ const sizeClasses = {
         >
           <!-- Header -->
           <div
-            v-if="title || closable"
+            v-if="showHeader && (title || closable)"
             class="flex items-center justify-between px-6 py-4 border-b border-slate-200"
           >
             <h2 class="text-lg font-semibold text-slate-900">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 interface Props {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline'
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
   loading?: boolean
@@ -39,6 +39,8 @@ const variantClasses = {
     'bg-transparent text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-500',
   danger:
     'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500',
+  outline:
+    'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-500',
 }
 
 const sizeClasses = {

@@ -2,6 +2,9 @@ const SESSION_ID_KEY = 'chat_session_id'
 const DISPLAY_NAME_KEY = 'chat_display_name'
 const USER_ID_KEY = 'chat_user_id'
 
+// Fallback in-memory storage if localStorage is unavailable
+let memorySessionId: string | null = null
+
 /**
  * Generate a random session ID
  */
@@ -11,14 +14,24 @@ function generateSessionId(): string {
 
 /**
  * Get or create a session ID from localStorage
+ * Falls back to in-memory storage if localStorage is unavailable
  */
 export function getSessionId(): string {
-  let sessionId = localStorage.getItem(SESSION_ID_KEY)
-  if (!sessionId) {
-    sessionId = generateSessionId()
-    localStorage.setItem(SESSION_ID_KEY, sessionId)
+  try {
+    let sessionId = localStorage.getItem(SESSION_ID_KEY)
+    if (!sessionId) {
+      sessionId = generateSessionId()
+      localStorage.setItem(SESSION_ID_KEY, sessionId)
+    }
+    return sessionId
+  } catch {
+    // localStorage may be unavailable (private browsing, storage full, etc.)
+    if (!memorySessionId) {
+      memorySessionId = generateSessionId()
+      console.warn('localStorage unavailable, using in-memory session')
+    }
+    return memorySessionId
   }
-  return sessionId
 }
 
 /**

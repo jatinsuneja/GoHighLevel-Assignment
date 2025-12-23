@@ -314,6 +314,48 @@ export class RoomService {
   }
 
   /**
+   * Closes a room manually
+   * 
+   * @description Allows a participant to close/end a chat room.
+   * Only participants of the room can close it.
+   * 
+   * @param {string} sessionId - User's session ID
+   * @param {string} roomId - Room to close
+   * @returns {Promise<RoomDocument>} Closed room
+   * @throws {RoomNotFoundException} If room doesn't exist
+   * @throws {UnauthorizedActionException} If user is not a participant
+   */
+  async closeRoom(sessionId: string, roomId: string): Promise<RoomDocument> {
+    this.logger.log(`Closing room ${roomId} for session: ${sessionId}`);
+
+    const userId = await this.getOrCreateUserId(sessionId);
+    const room = await this.roomRepository.findById(roomId);
+
+    if (!room) {
+      throw new RoomNotFoundException(roomId);
+    }
+
+    // Check if user is a participant
+    const isParticipant = room.participants.some((p) => p.userId === userId);
+    if (!isParticipant) {
+      throw new RoomNotFoundException(roomId); // Don't reveal room exists to non-participants
+    }
+
+    // Close the room
+    const closedRoom = await this.roomRepository.closeRoom(roomId);
+
+    if (!closedRoom) {
+      throw new RoomNotFoundException(roomId);
+    }
+
+    // Invalidate cache
+    await this.invalidateRoomCache(closedRoom);
+
+    this.logger.log(`Room ${roomId} closed by user ${userId}`);
+    return closedRoom;
+  }
+
+  /**
    * Gets all rooms for a user
    * 
    * @param {string} sessionId - User's session ID

@@ -42,6 +42,16 @@ export const roomApi = {
   },
 
   /**
+   * Close a room permanently
+   */
+  async close(roomId: string): Promise<RoomResponse> {
+    const response = await apiClient.post<RoomResponse>(
+      `${BASE_PATH}/${roomId}/close`
+    )
+    return response.data
+  },
+
+  /**
    * Get room details by room ID
    */
   async getById(roomId: string): Promise<RoomResponse> {

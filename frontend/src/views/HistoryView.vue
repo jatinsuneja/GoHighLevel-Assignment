@@ -2,9 +2,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { DefaultLayout } from '@/layouts'
-import { Button, Badge } from '@/components/ui'
+import { Button, Badge } from '@/components/atoms'
+import { ConfirmDialog } from '@/components/molecules'
 import { useNotificationStore } from '@/stores'
-import { historyApi } from '@/services/api'
+import { historyApi, roomApi } from '@/services/api'
 import type { ChatHistoryItem } from '@/types'
 import { formatHistoryDate } from '@/utils/formatters'
 
@@ -15,6 +16,46 @@ const chats = ref<ChatHistoryItem[]>([])
 const isLoading = ref(true)
 const activeTab = ref<'active' | 'archived'>('active')
 const actionLoading = ref<string | null>(null)
+
+// Confirmation dialog state
+interface ConfirmState {
+  open: boolean
+  title: string
+  message: string
+  variant: 'danger' | 'warning' | 'info'
+  confirmText: string
+  onConfirm: () => Promise<void>
+}
+
+const confirmState = ref<ConfirmState>({
+  open: false,
+  title: '',
+  message: '',
+  variant: 'danger',
+  confirmText: 'Confirm',
+  onConfirm: async () => {},
+})
+const confirmLoading = ref(false)
+
+function showConfirm(options: Omit<ConfirmState, 'open'>) {
+  confirmState.value = { ...options, open: true }
+}
+
+async function handleConfirm() {
+  confirmLoading.value = true
+  try {
+    await confirmState.value.onConfirm()
+  } finally {
+    confirmLoading.value = false
+    confirmState.value.open = false
+  }
+}
+
+function handleConfirmClose() {
+  if (!confirmLoading.value) {
+    confirmState.value.open = false
+  }
+}
 
 const filteredChats = computed(() => {
   if (activeTab.value === 'archived') {
@@ -59,21 +100,46 @@ async function archiveChat(chat: ChatHistoryItem) {
   }
 }
 
-async function deleteChat(chat: ChatHistoryItem) {
-  if (!confirm('Are you sure you want to delete this chat from your history?')) {
-    return
-  }
+function deleteChat(chat: ChatHistoryItem) {
+  showConfirm({
+    title: 'Delete Chat',
+    message: 'Are you sure you want to delete this chat from your history? This action cannot be undone.',
+    variant: 'danger',
+    confirmText: 'Delete',
+    onConfirm: async () => {
+      actionLoading.value = chat.roomId
+      try {
+        await historyApi.delete(chat.roomId)
+        chats.value = chats.value.filter((c) => c.roomId !== chat.roomId)
+        notificationStore.success('Chat deleted from history')
+      } catch (error) {
+        notificationStore.error((error as Error).message || 'Failed to delete chat')
+      } finally {
+        actionLoading.value = null
+      }
+    },
+  })
+}
 
-  actionLoading.value = chat.roomId
-  try {
-    await historyApi.delete(chat.roomId)
-    chats.value = chats.value.filter((c) => c.roomId !== chat.roomId)
-    notificationStore.success('Chat deleted from history')
-  } catch (error) {
-    notificationStore.error((error as Error).message || 'Failed to delete chat')
-  } finally {
-    actionLoading.value = null
-  }
+function closeChat(chat: ChatHistoryItem) {
+  showConfirm({
+    title: 'Close Chat',
+    message: 'Are you sure you want to close this chat? This will end the conversation for all participants.',
+    variant: 'warning',
+    confirmText: 'Close Chat',
+    onConfirm: async () => {
+      actionLoading.value = chat.roomId
+      try {
+        await roomApi.close(chat.roomId)
+        chat.status = 'closed'
+        notificationStore.success('Chat closed successfully')
+      } catch (error) {
+        notificationStore.error((error as Error).message || 'Failed to close chat')
+      } finally {
+        actionLoading.value = null
+      }
+    },
+  })
 }
 
 onMounted(() => {
@@ -251,6 +317,28 @@ onMounted(() => {
                   />
                 </svg>
               </button>
+              <!-- Close Chat Button (only for active chats) -->
+              <button
+                v-if="chat.status === 'active'"
+                class="p-2 rounded-lg text-slate-400 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+                title="Close Chat"
+                :disabled="actionLoading === chat.roomId"
+                @click.stop="closeChat(chat)"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                  />
+                </svg>
+              </button>
               <button
                 class="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                 title="Delete"
@@ -276,5 +364,17 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Confirmation Dialog -->
+    <ConfirmDialog
+      :open="confirmState.open"
+      :title="confirmState.title"
+      :message="confirmState.message"
+      :variant="confirmState.variant"
+      :confirm-text="confirmState.confirmText"
+      :loading="confirmLoading"
+      @close="handleConfirmClose"
+      @confirm="handleConfirm"
+    />
   </DefaultLayout>
 </template>

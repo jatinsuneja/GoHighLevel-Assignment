@@ -99,8 +99,15 @@ export class HistoryService {
     // Get user ID from session
     const userId = await this.sessionService.getUserId(sessionId);
 
+    // If no userId yet, user hasn't created/joined any rooms - return empty history
     if (!userId) {
-      throw new SessionNotFoundException();
+      this.logger.debug(`No user ID found for session ${sessionId.slice(0, 8)}, returning empty history`);
+      return {
+        chats: [],
+        total: 0,
+        archivedCount: 0,
+        activeCount: 0,
+      };
     }
 
     // Get user's session for archived list and history tracking

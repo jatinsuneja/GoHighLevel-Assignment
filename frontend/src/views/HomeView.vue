@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { DefaultLayout } from '@/layouts'
-import { Button, Input } from '@/components/ui'
+import { Button, Input } from '@/components/atoms'
 import { useSessionStore, useRoomStore, useNotificationStore } from '@/stores'
 import { ROOM_CODE_LENGTH } from '@/utils/constants'
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ToastContainer } from '@/components/ui'
-import { ChatHeader, MessageList, MessageInput } from '@/components/chat'
+import { ToastContainer } from '@/components/molecules'
+import { ChatHeader, MessageList, MessageInput } from '@/components/organisms'
 import {
   useSessionStore,
   useRoomStore,
