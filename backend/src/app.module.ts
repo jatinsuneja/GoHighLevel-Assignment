@@ -15,7 +15,7 @@ import { MessageModule } from './modules/message/message.module';
 import { SessionModule } from './modules/session/session.module';
 import { HistoryModule } from './modules/history/history.module';
 
-// Gateway Module
+// Chat Gateway Module
 import { ChatGatewayModule } from './gateways/chat-gateway.module';
 
 // Queue Module

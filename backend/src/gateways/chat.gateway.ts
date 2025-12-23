@@ -257,6 +257,7 @@ export class ChatGateway
         .map((p) => ({
           userId: p.userId,
           displayName: p.displayName,
+          isActive: true,
           isOnline: true,
           joinedAt: p.joinedAt.toISOString(),
           lastSeenAt: new Date().toISOString(),
@@ -271,7 +272,14 @@ export class ChatGateway
         recentMessages: recentMessages.messages,
       });
 
-      // Notify other participants
+      // Broadcast updated participants list to ALL clients in the room (including the joiner)
+      // This ensures everyone has the latest participant list
+      this.server.to(roomId).emit('participants_updated', {
+        roomId,
+        participants: activeParticipants,
+      });
+
+      // Also emit user_joined for notification purposes
       client.to(roomId).emit('user_joined', {
         userId,
         displayName: participant.displayName,
@@ -305,20 +313,47 @@ export class ChatGateway
 
       // Get user info before leaving
       const userId = await this.sessionService.getUserId(sessionId);
-
-      // Leave socket room
-      await client.leave(roomId);
+      
+      // Get room to find user's display name from participants BEFORE leaving
+      const roomBefore = await this.roomService.getRoomById(roomId);
+      const leavingParticipant = roomBefore?.participants.find((p) => p.userId === userId);
+      const displayName = leavingParticipant?.displayName || 'Unknown';
 
       // Update session
       await this.sessionService.setCurrentRoom(sessionId, null);
 
-      // Notify other participants
+      // Call room service to mark participant as inactive in database
+      const updatedRoom = await this.roomService.leaveRoom(sessionId, roomId);
+
+      // Get updated room participants (only active ones)
+      const activeParticipants = updatedRoom.participants
+        .filter((p) => p.isActive)
+        .map((p) => ({
+          userId: p.userId,
+          displayName: p.displayName,
+          isActive: true,
+          isOnline: true,
+          joinedAt: p.joinedAt.toISOString(),
+          lastSeenAt: new Date().toISOString(),
+        }));
+
+      // Notify other participants about who left (before leaving socket room)
       client.to(roomId).emit('user_left', {
         userId,
+        displayName,
         timestamp: new Date().toISOString(),
       });
 
-      this.logger.log(`User left room: ${roomId}`);
+      // Broadcast updated participants list to remaining clients
+      this.server.to(roomId).emit('participants_updated', {
+        roomId,
+        participants: activeParticipants,
+      });
+
+      // Leave socket room AFTER broadcasting
+      await client.leave(roomId);
+
+      this.logger.log(`User ${displayName} left room: ${roomId}`);
     } catch (error) {
       this.logger.error(`Leave room error: ${error.message}`);
       client.emit('error', { message: error.message });
