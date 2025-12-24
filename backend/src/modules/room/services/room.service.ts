@@ -292,11 +292,27 @@ export class RoomService implements OnModuleInit {
    * @throws {RoomNotFoundException} If room doesn't exist
    */
   async getRoomById(roomId: string): Promise<RoomDocument> {
+    // Try cache first (by room code if available)
+    const cacheKey = `room:id:${roomId}`;
+    const cachedRoomCode = await this.redisClient.get(cacheKey);
+    
+    if (cachedRoomCode) {
+      const cachedRoom = await this.getRoomFromCache(cachedRoomCode);
+      if (cachedRoom) {
+        return cachedRoom;
+      }
+    }
+
+    // Fallback to database
     const room = await this.roomRepository.findById(roomId);
 
     if (!room) {
       throw new RoomNotFoundException(roomId);
     }
+
+    // Cache the room ID → room code mapping for future lookups
+    await this.redisClient.setex(cacheKey, this.cacheTtl.ROOM, room.roomCode);
+    await this.cacheRoom(room);
 
     return room;
   }

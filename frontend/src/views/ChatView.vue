@@ -111,6 +111,18 @@ function handleRoomClosed(payload: RoomClosedPayload) {
 function handleSocketError(payload: SocketErrorPayload) {
   connectionError.value = payload.message
   notificationStore.error(payload.message)
+  
+  // If room not found, redirect to home
+  if (
+    payload.message.includes('not found') ||
+    payload.message.includes('has been closed') ||
+    payload.message.includes('Not a participant')
+  ) {
+    setTimeout(() => {
+      roomStore.clearCurrentRoom()
+      router.push('/')
+    }, 2000)
+  }
 }
 
 function handleDisconnect() {

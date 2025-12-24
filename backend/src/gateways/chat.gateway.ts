@@ -156,43 +156,72 @@ export class ChatGateway
   /**
    * Sets up the Redis adapter for WebSocket scaling
    */
-  private setupRedisAdapter(server: Server): void {
+  private async setupRedisAdapter(server: Server): Promise<void> {
     try {
-      // Check if Redis clients are connected
-      const pubReady = this.redisPub.status === 'ready' || this.redisPub.status === 'connecting';
-      const subReady = this.redisSub.status === 'ready' || this.redisSub.status === 'connecting';
+      // Wait for Redis clients to be ready
+      await Promise.race([
+        Promise.all([
+          this.waitForRedis(this.redisPub, 'publisher'),
+          this.waitForRedis(this.redisSub, 'subscriber'),
+        ]),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Redis connection timeout')), 5000)
+        ),
+      ]);
 
-      if (pubReady && subReady) {
-        // Create dedicated clients for the adapter (avoids conflicts with other operations)
-        const pubClient = this.redisPub.duplicate();
-        const subClient = this.redisSub.duplicate();
+      // Create dedicated clients for the adapter (avoids conflicts with other operations)
+      const pubClient = this.redisPub.duplicate();
+      const subClient = this.redisSub.duplicate();
 
-        // Handle adapter client errors
-        pubClient.on('error', (err) => {
-          this.logger.error(`Redis adapter pub client error: ${err.message}`);
-        });
-        subClient.on('error', (err) => {
-          this.logger.error(`Redis adapter sub client error: ${err.message}`);
-        });
+      // Handle adapter client errors
+      pubClient.on('error', (err) => {
+        this.logger.error(`Redis adapter pub client error: ${err.message}`);
+      });
+      subClient.on('error', (err) => {
+        this.logger.error(`Redis adapter sub client error: ${err.message}`);
+      });
 
-        // Log when adapter clients are ready
-        pubClient.on('ready', () => {
-          this.logger.log('Redis adapter pub client ready');
-        });
-        subClient.on('ready', () => {
-          this.logger.log('Redis adapter sub client ready');
-        });
+      // Log when adapter clients are ready
+      pubClient.on('ready', () => {
+        this.logger.log('Redis adapter pub client ready');
+      });
+      subClient.on('ready', () => {
+        this.logger.log('Redis adapter sub client ready');
+      });
 
-        server.adapter(createAdapter(pubClient, subClient));
-        this.logger.log('✅ Redis adapter configured - horizontal scaling enabled');
-      } else {
-        this.logger.warn('⚠️ Redis not ready - using in-memory adapter (single instance only)');
-        this.logger.warn('For production with multiple instances, ensure Redis is running');
-      }
+      server.adapter(createAdapter(pubClient, subClient));
+      this.logger.log('✅ Redis adapter configured - horizontal scaling enabled');
     } catch (error) {
       this.logger.error(`Redis adapter setup failed: ${error.message}`);
       this.logger.warn('⚠️ Falling back to in-memory adapter - single instance mode');
+      this.logger.warn('For production with multiple instances, ensure Redis is running');
     }
+  }
+
+  /**
+   * Waits for a Redis client to be ready
+   */
+  private async waitForRedis(client: Redis, name: string): Promise<void> {
+    if (client.status === 'ready') {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`${name} Redis client connection timeout`));
+      }, 5000);
+
+      client.once('ready', () => {
+        clearTimeout(timeout);
+        this.logger.log(`Redis ${name} client ready`);
+        resolve();
+      });
+
+      client.once('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
   }
 
   /**
