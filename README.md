@@ -255,6 +255,10 @@ A production-ready, real-time anonymous chat application enabling private 1:1 co
 git clone https://github.com/jatinsuneja/GoHighLevel-Assignment.git
 cd GoHighLevel-Assignment
 
+# Copy and configure environment variables
+cp env.example .env
+# Edit .env and set MONGO_PASSWORD (required)
+
 # Build and start all services
 docker-compose up -d --build
 
@@ -743,6 +747,7 @@ const socket = io({
 │
 ├── docker-compose.yml              # Production deployment
 ├── docker-compose.dev.yml          # Development with hot reload
+├── env.example                     # Environment variables template
 ├── mongo-init.js                   # MongoDB initialization script
 └── README.md
 ```
@@ -750,6 +755,18 @@ const socket = io({
 ---
 
 ## ⚙️ Environment Variables
+
+### Docker Compose (.env)
+```bash
+# Required for docker-compose
+MONGO_USERNAME=admin
+MONGO_PASSWORD=your_secure_password_here  # Required!
+MONGO_DATABASE=anonymous_chat
+
+# Optional
+REDIS_PASSWORD=
+CORS_ORIGINS=http://localhost:3000,http://frontend:3000
+```
 
 ### Backend (.env)
 ```bash
