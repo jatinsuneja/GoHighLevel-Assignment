@@ -30,13 +30,13 @@ let socket: TypedSocket | null = null
 
 /**
  * Get or create the socket connection
- * Backend uses /chat namespace for WebSocket events
+ * Connects to default namespace (no custom namespace for simpler proxy setup)
  */
 export function getSocket(): TypedSocket {
   if (!socket) {
     const serverUrl = getServerUrl()
-    // Connect to the /chat namespace as defined in backend gateway
-    socket = io(`${serverUrl}/chat`, {
+    // Connect to default namespace for simpler nginx proxy compatibility
+    socket = io(serverUrl || '/', {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       autoConnect: false,

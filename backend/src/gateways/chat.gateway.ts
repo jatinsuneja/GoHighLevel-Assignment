@@ -97,7 +97,6 @@ interface DeleteMessagePayload {
     methods: ['GET', 'POST'],
     credentials: true,
   },
-  namespace: '/chat',
   transports: ['websocket', 'polling'],
 })
 export class ChatGateway
