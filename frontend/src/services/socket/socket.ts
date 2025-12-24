@@ -8,8 +8,23 @@ import {
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>
 
-// Use VITE_SERVER_BASE_URL for socket connection (same as API)
-const SERVER_URL = import.meta.env.VITE_SERVER_BASE_URL || 'http://localhost:3000'
+/**
+ * Get the server URL for socket connection
+ * - In production (via nginx proxy): use relative path (empty string)
+ * - In development: use localhost:3000 for direct backend connection
+ */
+function getServerUrl(): string {
+  // If VITE_SERVER_BASE_URL is set, use it (for direct backend connection)
+  if (import.meta.env.VITE_SERVER_BASE_URL) {
+    return import.meta.env.VITE_SERVER_BASE_URL
+  }
+  // In production behind nginx, use relative URL (nginx proxies /socket.io/)
+  if (import.meta.env.PROD) {
+    return ''
+  }
+  // Development default
+  return 'http://localhost:3000'
+}
 
 let socket: TypedSocket | null = null
 
@@ -19,8 +34,9 @@ let socket: TypedSocket | null = null
  */
 export function getSocket(): TypedSocket {
   if (!socket) {
+    const serverUrl = getServerUrl()
     // Connect to the /chat namespace as defined in backend gateway
-    socket = io(`${SERVER_URL}/chat`, {
+    socket = io(`${serverUrl}/chat`, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       autoConnect: false,

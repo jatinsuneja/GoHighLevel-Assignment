@@ -103,7 +103,9 @@ export class RoomRepository implements IRoomRepository {
    * @returns {Promise<RoomDocument | null>} Room document or null if not found
    */
   async findById(roomId: string): Promise<RoomDocument | null> {
-    return this.roomModel.findById(roomId).exec();
+    // Use findOne with _id instead of findById for string-based UUIDs
+    // findById tries to cast to ObjectId which fails with UUID strings
+    return this.roomModel.findOne({ _id: roomId }).exec();
   }
 
   /**
@@ -181,9 +183,10 @@ export class RoomRepository implements IRoomRepository {
   ): Promise<RoomDocument | null> {
     this.logger.debug(`Adding participant ${participant.userId} to room ${roomId}`);
 
+    // Use findOneAndUpdate with _id for string-based UUIDs
     return this.roomModel
-      .findByIdAndUpdate(
-        roomId,
+      .findOneAndUpdate(
+        { _id: roomId },
         {
           $push: { participants: participant },
         },
@@ -236,9 +239,10 @@ export class RoomRepository implements IRoomRepository {
   async closeRoom(roomId: string): Promise<RoomDocument | null> {
     this.logger.log(`Closing room: ${roomId}`);
 
+    // Use findOneAndUpdate with _id for string-based UUIDs
     return this.roomModel
-      .findByIdAndUpdate(
-        roomId,
+      .findOneAndUpdate(
+        { _id: roomId },
         {
           status: RoomStatus.CLOSED,
           closedAt: new Date(),

@@ -90,7 +90,8 @@ export class MessageRepository {
    * @returns {Promise<MessageDocument | null>} Message or null
    */
   async findById(messageId: string): Promise<MessageDocument | null> {
-    return this.messageModel.findById(messageId).exec();
+    // Use findOne with _id for string-based UUIDs
+    return this.messageModel.findOne({ _id: messageId }).exec();
   }
 
   /**
@@ -198,9 +199,10 @@ export class MessageRepository {
   ): Promise<MessageDocument | null> {
     this.logger.log(`Soft-deleting message: ${messageId}`);
 
+    // Use findOneAndUpdate with _id for string-based UUIDs
     return this.messageModel
-      .findByIdAndUpdate(
-        messageId,
+      .findOneAndUpdate(
+        { _id: messageId },
         {
           isDeleted: true,
           deletedBy,
@@ -225,9 +227,10 @@ export class MessageRepository {
   ): Promise<MessageDocument | null> {
     this.logger.debug(`Adding reaction ${reaction.type} to message: ${messageId}`);
 
+    // Use findOneAndUpdate with _id for string-based UUIDs
     return this.messageModel
-      .findByIdAndUpdate(
-        messageId,
+      .findOneAndUpdate(
+        { _id: messageId },
         { $push: { reactions: reaction } },
         { new: true },
       )
@@ -249,9 +252,10 @@ export class MessageRepository {
   ): Promise<MessageDocument | null> {
     this.logger.debug(`Removing reaction ${type} from message: ${messageId}`);
 
+    // Use findOneAndUpdate with _id for string-based UUIDs
     return this.messageModel
-      .findByIdAndUpdate(
-        messageId,
+      .findOneAndUpdate(
+        { _id: messageId },
         { $pull: { reactions: { userId, type } } },
         { new: true },
       )
