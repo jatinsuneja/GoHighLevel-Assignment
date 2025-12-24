@@ -10,7 +10,7 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>
 
 /**
  * Get the server URL for socket connection
- * - In production (via nginx proxy): use relative path (empty string)
+ * - In production (via nginx proxy): use current origin to ensure correct protocol (https/wss)
  * - In development: use localhost:3000 for direct backend connection
  */
 function getServerUrl(): string {
@@ -18,9 +18,9 @@ function getServerUrl(): string {
   if (import.meta.env.VITE_SERVER_BASE_URL) {
     return import.meta.env.VITE_SERVER_BASE_URL
   }
-  // In production behind nginx, use relative URL (nginx proxies /socket.io/)
-  if (import.meta.env.PROD) {
-    return ''
+  // In production, use window.location.origin to get correct protocol (https → wss)
+  if (import.meta.env.PROD && typeof window !== 'undefined') {
+    return window.location.origin
   }
   // Development default
   return 'http://localhost:3000'
@@ -35,14 +35,15 @@ let socket: TypedSocket | null = null
 export function getSocket(): TypedSocket {
   if (!socket) {
     const serverUrl = getServerUrl()
-    // Connect to default namespace for simpler nginx proxy compatibility
-    socket = io(serverUrl || '/', {
+    // Connect to server - Socket.IO will use wss:// when origin is https://
+    socket = io(serverUrl, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       autoConnect: false,
       reconnection: true,
       reconnectionAttempts: SOCKET_RECONNECTION_ATTEMPTS,
       reconnectionDelay: SOCKET_RECONNECTION_DELAY,
+      secure: window.location.protocol === 'https:',
       auth: {
         sessionId: getSessionId(),
       },
