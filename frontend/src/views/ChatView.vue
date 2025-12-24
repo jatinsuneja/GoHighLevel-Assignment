@@ -176,12 +176,28 @@ async function initializeChat() {
     socket.on('error', handleSocketError)
     socket.on('disconnect', handleDisconnect)
     socket.on('connect', handleConnect)
+    
+    // Handle connection errors
+    socket.on('connect_error', (err) => {
+      console.error('Socket connection error:', err.message)
+      connectionError.value = `Connection failed: ${err.message}`
+      isConnecting.value = false
+    })
 
     // If socket is already connected, emit join_room immediately
     // Otherwise, it will be emitted when 'connect' event fires
     if (socket.connected && roomStore.roomId) {
       socket.emit('join_room', { roomId: roomStore.roomId })
     }
+    
+    // Timeout after 15 seconds if still connecting
+    setTimeout(() => {
+      if (isConnecting.value && !connectionError.value) {
+        connectionError.value = 'Connection timeout. Please check your network and try again.'
+        isConnecting.value = false
+        notificationStore.error('Connection timeout')
+      }
+    }, 15000)
   } catch (error) {
     connectionError.value = (error as Error).message
     notificationStore.error((error as Error).message || 'Failed to join room')
@@ -209,6 +225,7 @@ function cleanup() {
   socket.off('error', handleSocketError)
   socket.off('disconnect', handleDisconnect)
   socket.off('connect', handleConnect)
+  socket.off('connect_error')
 
   // Clear stores
   chatStore.clearMessages()
