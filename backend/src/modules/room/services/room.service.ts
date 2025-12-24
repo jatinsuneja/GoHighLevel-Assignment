@@ -10,7 +10,8 @@
  * - Decoupled from data access and presentation layers
  */
 
-import { Injectable, Inject, Logger, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, Logger, forwardRef, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { REDIS_CLIENT } from '../../../config/redis.module';
 import { RoomRepository } from '../repositories/room.repository';
@@ -37,14 +38,6 @@ const CACHE_KEYS = {
 };
 
 /**
- * Cache TTL in seconds
- */
-const CACHE_TTL = {
-  ROOM: 3600, // 1 hour
-  USER_ROOMS: 1800, // 30 minutes
-};
-
-/**
  * Room Service
  * 
  * @description Handles all business logic for room operations:
@@ -56,8 +49,14 @@ const CACHE_TTL = {
  * @class RoomService
  */
 @Injectable()
-export class RoomService {
+export class RoomService implements OnModuleInit {
   private readonly logger = new Logger(RoomService.name);
+  
+  // Cache TTL values loaded from config
+  private cacheTtl: { ROOM: number; USER_ROOMS: number; SESSION: number };
+  // Default room values from config
+  private defaultMaxParticipants: number;
+  private defaultRoomExpiryHours: number;
 
   constructor(
     private readonly roomRepository: RoomRepository,
@@ -65,7 +64,18 @@ export class RoomService {
     private readonly sessionService: SessionService,
     @Inject(REDIS_CLIENT)
     private readonly redisClient: Redis,
+    private readonly configService: ConfigService,
   ) {}
+
+  onModuleInit(): void {
+    this.cacheTtl = {
+      ROOM: this.configService.get<number>('CACHE_TTL_ROOM', 3600),
+      USER_ROOMS: this.configService.get<number>('CACHE_TTL_USER_ROOMS', 1800),
+      SESSION: this.configService.get<number>('CACHE_TTL_SESSION', 86400),
+    };
+    this.defaultMaxParticipants = this.configService.get<number>('DEFAULT_MAX_PARTICIPANTS', 10);
+    this.defaultRoomExpiryHours = this.configService.get<number>('DEFAULT_ROOM_EXPIRY_HOURS', 24);
+  }
 
   /**
    * Creates a new chat room
@@ -97,8 +107,8 @@ export class RoomService {
     const room = await this.roomRepository.create(
       userId,
       dto.displayName,
-      dto.maxParticipants || 10,
-      dto.expiresInHours || 24,
+      dto.maxParticipants || this.defaultMaxParticipants,
+      dto.expiresInHours || this.defaultRoomExpiryHours,
     );
 
     // Cache room for quick lookup
@@ -385,7 +395,7 @@ export class RoomService {
     const userId = generateId();
     await this.redisClient.setex(
       `session:${sessionId}:userId`,
-      86400, // 24 hours
+      this.cacheTtl.SESSION,
       userId,
     );
 
@@ -404,12 +414,12 @@ export class RoomService {
     await Promise.all([
       this.redisClient.setex(
         CACHE_KEYS.ROOM_BY_CODE(room.roomCode),
-        CACHE_TTL.ROOM,
+        this.cacheTtl.ROOM,
         roomData,
       ),
       this.redisClient.setex(
         CACHE_KEYS.ROOM_BY_ID(room._id),
-        CACHE_TTL.ROOM,
+        this.cacheTtl.ROOM,
         roomData,
       ),
     ]);

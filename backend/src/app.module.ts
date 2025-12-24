@@ -60,17 +60,17 @@ import { CustomThrottlerGuard } from './common/guards/throttler.guard';
         throttlers: [
           {
             name: 'short',
-            ttl: 1000, // 1 second
+            ttl: configService.get<number>('THROTTLE_SHORT_TTL_MS', 1000),
             limit: configService.get<number>('THROTTLE_SHORT_LIMIT', 10),
           },
           {
             name: 'medium',
-            ttl: 10000, // 10 seconds
+            ttl: configService.get<number>('THROTTLE_MEDIUM_TTL_MS', 10000),
             limit: configService.get<number>('THROTTLE_MEDIUM_LIMIT', 50),
           },
           {
             name: 'long',
-            ttl: 60000, // 1 minute
+            ttl: configService.get<number>('THROTTLE_LONG_TTL_MS', 60000),
             limit: configService.get<number>('THROTTLE_LONG_LIMIT', 200),
           },
         ],
@@ -99,21 +99,27 @@ import { CustomThrottlerGuard } from './common/guards/throttler.guard';
     // Uses Redis as the backend - will retry connection if Redis is unavailable
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        connection: {
-          host: configService.get<string>('REDIS_HOST', 'localhost'),
-          port: configService.get<number>('REDIS_PORT', 6379),
-          password:
-            configService.get<string>('REDIS_PASSWORD', '') || undefined,
-          maxRetriesPerRequest: null, // Disable retry limiting for workers
-          enableReadyCheck: false, // Skip ready check for faster startup
-          retryStrategy: (times: number) => {
-            if (times > 10) return null; // Stop after 10 retries
-            return Math.min(times * 500, 5000);
+      useFactory: async (configService: ConfigService) => {
+        const maxRetries = configService.get<number>('REDIS_MAX_RETRIES', 10);
+        const retryDelay = configService.get<number>('REDIS_RETRY_DELAY_MS', 500);
+        const maxRetryDelay = configService.get<number>('REDIS_MAX_RETRY_DELAY_MS', 5000);
+        
+        return {
+          connection: {
+            host: configService.get<string>('REDIS_HOST', 'localhost'),
+            port: configService.get<number>('REDIS_PORT', 6379),
+            password:
+              configService.get<string>('REDIS_PASSWORD', '') || undefined,
+            maxRetriesPerRequest: null, // Disable retry limiting for workers
+            enableReadyCheck: false, // Skip ready check for faster startup
+            retryStrategy: (times: number) => {
+              if (times > maxRetries) return null; // Stop after max retries
+              return Math.min(times * retryDelay, maxRetryDelay);
+            },
           },
-        },
-        prefix: configService.get<string>('BULLMQ_PREFIX', 'anon-chat'),
-      }),
+          prefix: configService.get<string>('BULLMQ_PREFIX', 'anon-chat'),
+        };
+      },
       inject: [ConfigService],
     }),
 

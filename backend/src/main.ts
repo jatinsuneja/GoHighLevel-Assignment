@@ -39,6 +39,7 @@ async function bootstrap(): Promise<void> {
   const port = configService.get<number>('PORT', 3000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
   const corsOrigins = configService.get<string>('CORS_ORIGINS', 'http://localhost:5173');
+  const corsMaxAge = configService.get<number>('CORS_MAX_AGE', 86400);
 
   // Set global API prefix
   app.setGlobalPrefix(apiPrefix);
@@ -50,7 +51,7 @@ async function bootstrap(): Promise<void> {
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Request-Id'],
     exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],
-    maxAge: 86400, // 24 hours
+    maxAge: corsMaxAge,
   });
 
   // Security headers with Helmet

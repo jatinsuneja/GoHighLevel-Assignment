@@ -24,7 +24,8 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, Inject, UseGuards } from '@nestjs/common';
+import { Logger, Inject, UseGuards, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import { REDIS_PUBLISHER, REDIS_SUBSCRIBER } from '../config/redis.module';
@@ -103,12 +104,15 @@ interface DeleteMessagePayload {
   transports: ['websocket', 'polling'],
 })
 export class ChatGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleInit
 {
   @WebSocketServer()
   private server: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
+  
+  // Config values
+  private defaultMessageLimit: number;
 
   constructor(
     @Inject(REDIS_PUBLISHER)
@@ -118,7 +122,12 @@ export class ChatGateway
     private readonly sessionService: SessionService,
     private readonly roomService: RoomService,
     private readonly messageService: MessageService,
+    private readonly configService: ConfigService,
   ) {}
+
+  onModuleInit(): void {
+    this.defaultMessageLimit = this.configService.get<number>('DEFAULT_MESSAGE_LIMIT', 50);
+  }
 
   /**
    * Initializes the WebSocket gateway with Redis adapter
@@ -300,7 +309,7 @@ export class ChatGateway
 
       // Get recent messages for the room
       const recentMessages = await this.messageService.getMessages(sessionId, roomId, {
-        limit: 50,
+        limit: this.defaultMessageLimit,
       });
 
       // Map participants for response

@@ -4,7 +4,8 @@
  * @module modules/session/services/session
  */
 
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import Redis from 'ioredis';
@@ -23,14 +24,6 @@ const CACHE_KEYS = {
 };
 
 /**
- * Cache TTL in seconds
- */
-const CACHE_TTL = {
-  SESSION: 86400, // 24 hours
-  PRESENCE: 60,   // 1 minute
-};
-
-/**
  * Session Service
  * 
  * @description Manages user sessions with the following features:
@@ -43,15 +36,26 @@ const CACHE_TTL = {
  * @class SessionService
  */
 @Injectable()
-export class SessionService {
+export class SessionService implements OnModuleInit {
   private readonly logger = new Logger(SessionService.name);
+  
+  // Cache TTL values loaded from config
+  private cacheTtl: { SESSION: number; PRESENCE: number };
 
   constructor(
     @InjectModel(UserSession.name)
     private readonly sessionModel: Model<UserSessionDocument>,
     @Inject(REDIS_CLIENT)
     private readonly redisClient: Redis,
+    private readonly configService: ConfigService,
   ) {}
+
+  onModuleInit(): void {
+    this.cacheTtl = {
+      SESSION: this.configService.get<number>('CACHE_TTL_SESSION', 86400),
+      PRESENCE: this.configService.get<number>('CACHE_TTL_PRESENCE', 60),
+    };
+  }
 
   /**
    * Gets or creates a session for the given session ID
@@ -136,7 +140,7 @@ export class SessionService {
 private async cacheUserIdSafe(cacheKey: string, userId: string): Promise<void> {
   try {
     if (this.redisClient.status === 'ready') {
-      await this.redisClient.setex(cacheKey, CACHE_TTL.SESSION, userId);
+      await this.redisClient.setex(cacheKey, this.cacheTtl.SESSION, userId);
     }
   } catch (error) {
     this.logger.warn(`Failed to cache userId: ${error.message}`);
@@ -190,7 +194,7 @@ async connectSocket(sessionId: string, socketId: string): Promise<void> {
     if (this.redisClient.status === 'ready') {
       await this.redisClient.setex(
         CACHE_KEYS.SOCKET(socketId),
-        CACHE_TTL.SESSION,
+        this.cacheTtl.SESSION,
         sessionId,
       );
     }
@@ -314,7 +318,7 @@ async setPresence(
 
     if (isPresent) {
       await this.redisClient.sadd(key, sessionId);
-      await this.redisClient.expire(key, CACHE_TTL.PRESENCE);
+      await this.redisClient.expire(key, this.cacheTtl.PRESENCE);
     } else {
       await this.redisClient.srem(key, sessionId);
     }

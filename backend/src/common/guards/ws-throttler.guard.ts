@@ -4,7 +4,8 @@
  * @module common/guards/ws-throttler
  */
 
-import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Socket } from 'socket.io';
 
 /**
@@ -29,27 +30,62 @@ interface RateLimitEntry {
  * @class WsThrottlerGuard
  */
 @Injectable()
-export class WsThrottlerGuard implements CanActivate {
+export class WsThrottlerGuard implements CanActivate, OnModuleInit {
   private readonly logger = new Logger(WsThrottlerGuard.name);
   
-  // Rate limit configuration per event type
-  private readonly limits: Record<string, { max: number; windowMs: number }> = {
-    send_message: { max: 25, windowMs: 10000 }, // 25 messages per 10 seconds
-    typing: { max: 50, windowMs: 10000 }, // 50 typing events per 10 seconds
-    add_reaction: { max: 15, windowMs: 10000 }, // 15 reactions per 10 seconds
-    remove_reaction: { max: 15, windowMs: 10000 },
-    delete_message: { max: 5, windowMs: 10000 }, // 5 deletes per 10 seconds
-    join_room: { max: 10, windowMs: 60000 }, // 10 joins per minute
-    leave_room: { max: 10, windowMs: 60000 },
-    default: { max: 100, windowMs: 10000 }, // Default: 100 events per 10 seconds
-  };
+  // Rate limit configuration per event type (initialized in onModuleInit)
+  private limits: Record<string, { max: number; windowMs: number }>;
 
   // In-memory storage (use Redis in production for horizontal scaling)
   private readonly rateLimits: Map<string, RateLimitEntry> = new Map();
   
   // Blocked clients (exceeded rate limit)
   private readonly blockedClients: Map<string, number> = new Map();
-  private readonly BLOCK_DURATION_MS = 10000; // 10 second block
+  private blockDurationMs: number;
+
+  constructor(private readonly configService: ConfigService) {}
+
+  onModuleInit(): void {
+    const windowMs = this.configService.get<number>('WS_RATE_LIMIT_WINDOW_MS', 10000);
+    const joinWindowMs = this.configService.get<number>('WS_JOIN_RATE_LIMIT_WINDOW_MS', 60000);
+    
+    this.limits = {
+      send_message: { 
+        max: this.configService.get<number>('WS_MESSAGE_RATE_LIMIT', 25), 
+        windowMs,
+      },
+      typing: { 
+        max: this.configService.get<number>('WS_TYPING_RATE_LIMIT', 50), 
+        windowMs,
+      },
+      add_reaction: { 
+        max: this.configService.get<number>('WS_REACTION_RATE_LIMIT', 15), 
+        windowMs,
+      },
+      remove_reaction: { 
+        max: this.configService.get<number>('WS_REACTION_RATE_LIMIT', 15), 
+        windowMs,
+      },
+      delete_message: { 
+        max: this.configService.get<number>('WS_DELETE_RATE_LIMIT', 5), 
+        windowMs,
+      },
+      join_room: { 
+        max: this.configService.get<number>('WS_JOIN_RATE_LIMIT', 10), 
+        windowMs: joinWindowMs,
+      },
+      leave_room: { 
+        max: this.configService.get<number>('WS_JOIN_RATE_LIMIT', 10), 
+        windowMs: joinWindowMs,
+      },
+      default: { 
+        max: this.configService.get<number>('WS_DEFAULT_RATE_LIMIT', 100), 
+        windowMs,
+      },
+    };
+    
+    this.blockDurationMs = this.configService.get<number>('WS_RATE_LIMIT_BLOCK_DURATION_MS', 10000);
+  }
 
   /**
    * Check if the WebSocket event should be allowed
@@ -97,12 +133,12 @@ export class WsThrottlerGuard implements CanActivate {
       );
       
       // Block client
-      this.blockedClients.set(sessionId, now + this.BLOCK_DURATION_MS);
+      this.blockedClients.set(sessionId, now + this.blockDurationMs);
       
       client.emit('error', {
         message: 'Too many requests. You have been temporarily rate limited.',
         type: 'RATE_LIMIT',
-        retryAfter: this.BLOCK_DURATION_MS / 1000,
+        retryAfter: this.blockDurationMs / 1000,
       });
       
       return false;

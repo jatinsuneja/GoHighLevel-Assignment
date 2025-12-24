@@ -16,7 +16,8 @@
  * - Performance-optimized sorting and filtering
  */
 
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { REDIS_CLIENT } from '../../../config/redis.module';
 import { RoomRepository } from '../../room/repositories/room.repository';
@@ -34,14 +35,6 @@ import {
 } from '../../../common/exceptions/business.exceptions';
 
 /**
- * Cache TTL constants (in seconds)
- */
-const CACHE_TTL = {
-  HISTORY_LIST: 60,      // 1 minute for history list
-  MESSAGE_COUNT: 300,    // 5 minutes for message counts
-} as const;
-
-/**
  * History Service
  * 
  * @description Manages chat history with enterprise-grade features:
@@ -53,8 +46,11 @@ const CACHE_TTL = {
  * @class HistoryService
  */
 @Injectable()
-export class HistoryService {
+export class HistoryService implements OnModuleInit {
   private readonly logger = new Logger(HistoryService.name);
+  
+  // Cache TTL values loaded from config
+  private cacheTtl: { HISTORY_LIST: number; MESSAGE_COUNT: number };
 
   constructor(
     private readonly roomRepository: RoomRepository,
@@ -62,7 +58,15 @@ export class HistoryService {
     private readonly sessionService: SessionService,
     @Inject(REDIS_CLIENT)
     private readonly redisClient: Redis,
+    private readonly configService: ConfigService,
   ) {}
+
+  onModuleInit(): void {
+    this.cacheTtl = {
+      HISTORY_LIST: this.configService.get<number>('CACHE_TTL_HISTORY_LIST', 60),
+      MESSAGE_COUNT: this.configService.get<number>('CACHE_TTL_MESSAGE_COUNT', 300),
+    };
+  }
 
   /**
    * Gets chat history for a user with rich metadata

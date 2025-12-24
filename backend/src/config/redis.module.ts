@@ -29,19 +29,24 @@ const logger = new Logger('RedisModule');
  * Create a Redis client with error handling
  */
 function createRedisClient(configService: ConfigService, name: string): Redis {
+  const maxRetries = configService.get<number>('REDIS_MAX_RETRIES', 10);
+  const retryDelay = configService.get<number>('REDIS_RETRY_DELAY_MS', 500);
+  const maxRetryDelay = configService.get<number>('REDIS_MAX_RETRY_DELAY_MS', 5000);
+  const keyPrefix = configService.get<string>('REDIS_KEY_PREFIX', 'anon-chat:');
+
   const client = new Redis({
     host: configService.get<string>('REDIS_HOST', 'localhost'),
     port: configService.get<number>('REDIS_PORT', 6379),
     password: configService.get<string>('REDIS_PASSWORD', '') || undefined,
-    keyPrefix: name === 'main' ? 'anon-chat:' : undefined,
+    keyPrefix: name === 'main' ? keyPrefix : undefined,
     maxRetriesPerRequest: 3,
     retryStrategy: (times: number) => {
-      if (times > 10) {
+      if (times > maxRetries) {
         logger.warn(`Redis ${name}: Max retries reached, stopping reconnection attempts`);
         return null; // Stop retrying
       }
-      // Exponential backoff with max 5 seconds
-      const delay = Math.min(times * 500, 5000);
+      // Exponential backoff with max delay
+      const delay = Math.min(times * retryDelay, maxRetryDelay);
       logger.log(`Redis ${name}: Retry attempt ${times}, next retry in ${delay}ms`);
       return delay;
     },

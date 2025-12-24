@@ -9,7 +9,8 @@
  * - Validates permissions and throws domain exceptions
  */
 
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
@@ -43,10 +44,6 @@ const CACHE_KEYS = {
   ROOM_MESSAGES: (roomId: string) => `room:${roomId}:messages`,
 };
 
-const CACHE_TTL = {
-  MESSAGE: 1800, // 30 minutes
-};
-
 /**
  * Message Service
  * 
@@ -60,8 +57,12 @@ const CACHE_TTL = {
  * @class MessageService
  */
 @Injectable()
-export class MessageService {
+export class MessageService implements OnModuleInit {
   private readonly logger = new Logger(MessageService.name);
+  
+  // Cache TTL values and message limits from config
+  private cacheTtlMessage: number;
+  private defaultMessageLimit: number;
 
   constructor(
     private readonly messageRepository: MessageRepository,
@@ -70,7 +71,13 @@ export class MessageService {
     private readonly redisClient: Redis,
     @InjectQueue('message-persistence')
     private readonly messageQueue: Queue,
+    private readonly configService: ConfigService,
   ) {}
+
+  onModuleInit(): void {
+    this.cacheTtlMessage = this.configService.get<number>('CACHE_TTL_MESSAGE', 1800);
+    this.defaultMessageLimit = this.configService.get<number>('DEFAULT_MESSAGE_LIMIT', 50);
+  }
 
   /**
    * Sends a message to a room
