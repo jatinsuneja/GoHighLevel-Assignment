@@ -24,11 +24,8 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, Inject, UseGuards, OnModuleInit } from '@nestjs/common';
+import { Logger, UseGuards, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createAdapter } from '@socket.io/redis-adapter';
-import Redis from 'ioredis';
-import { REDIS_PUBLISHER, REDIS_SUBSCRIBER } from '../config/redis.module';
 import { SessionService } from '../modules/session/services/session.service';
 import { RoomService } from '../modules/room/services/room.service';
 import { MessageService } from '../modules/message/services/message.service';
@@ -115,10 +112,6 @@ export class ChatGateway
   private defaultMessageLimit: number;
 
   constructor(
-    @Inject(REDIS_PUBLISHER)
-    private readonly redisPub: Redis,
-    @Inject(REDIS_SUBSCRIBER)
-    private readonly redisSub: Redis,
     private readonly sessionService: SessionService,
     private readonly roomService: RoomService,
     private readonly messageService: MessageService,
@@ -130,109 +123,16 @@ export class ChatGateway
   }
 
   /**
-   * Initializes the WebSocket gateway with Redis adapter
+   * Initializes the WebSocket gateway
    * 
-   * @description Sets up Redis adapter for horizontal scaling.
-   * All WebSocket events are broadcast across all server instances.
-   * Falls back to in-memory adapter if Redis is unavailable.
+   * @description Redis adapter is configured in main.ts via RedisIoAdapter
+   * for horizontal scaling support.
    * 
-   * Production Considerations:
-   * - With Redis adapter: supports multiple server instances behind load balancer
-   * - Without Redis: single instance only (development mode)
-   * - Sticky sessions required if using polling fallback
-   * 
-   * @param {Server} server - Socket.io server instance
+   * @param {Server} _server - Socket.io server instance (unused - adapter configured in main.ts)
    */
-  afterInit(server: Server): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  afterInit(_server: Server): void {
     this.logger.log('WebSocket Gateway initialized');
-
-    // Set up Redis adapter for horizontal scaling
-    this.setupRedisAdapter(server);
-
-    // Set up periodic cleanup for rate limiting
-    this.setupCleanupInterval();
-  }
-
-  /**
-   * Sets up the Redis adapter for WebSocket scaling
-   */
-  private async setupRedisAdapter(server: Server): Promise<void> {
-    try {
-      // Wait for Redis clients to be ready
-      await Promise.race([
-        Promise.all([
-          this.waitForRedis(this.redisPub, 'publisher'),
-          this.waitForRedis(this.redisSub, 'subscriber'),
-        ]),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Redis connection timeout')), 5000)
-        ),
-      ]);
-
-      // Create dedicated clients for the adapter (avoids conflicts with other operations)
-      const pubClient = this.redisPub.duplicate();
-      const subClient = this.redisSub.duplicate();
-
-      // Handle adapter client errors
-      pubClient.on('error', (err) => {
-        this.logger.error(`Redis adapter pub client error: ${err.message}`);
-      });
-      subClient.on('error', (err) => {
-        this.logger.error(`Redis adapter sub client error: ${err.message}`);
-      });
-
-      // Log when adapter clients are ready
-      pubClient.on('ready', () => {
-        this.logger.log('Redis adapter pub client ready');
-      });
-      subClient.on('ready', () => {
-        this.logger.log('Redis adapter sub client ready');
-      });
-
-      server.adapter(createAdapter(pubClient, subClient));
-      this.logger.log('✅ Redis adapter configured - horizontal scaling enabled');
-    } catch (error) {
-      this.logger.error(`Redis adapter setup failed: ${error.message}`);
-      this.logger.warn('⚠️ Falling back to in-memory adapter - single instance mode');
-      this.logger.warn('For production with multiple instances, ensure Redis is running');
-    }
-  }
-
-  /**
-   * Waits for a Redis client to be ready
-   */
-  private async waitForRedis(client: Redis, name: string): Promise<void> {
-    if (client.status === 'ready') {
-      return;
-    }
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error(`${name} Redis client connection timeout`));
-      }, 5000);
-
-      client.once('ready', () => {
-        clearTimeout(timeout);
-        this.logger.log(`Redis ${name} client ready`);
-        resolve();
-      });
-
-      client.once('error', (err) => {
-        clearTimeout(timeout);
-        reject(err);
-      });
-    });
-  }
-
-  /**
-   * Sets up periodic cleanup for rate limiting data
-   */
-  private setupCleanupInterval(): void {
-    // Clean up rate limiting data every 5 minutes
-    setInterval(() => {
-      // Note: WsThrottlerGuard cleanup is handled internally
-      this.logger.debug('Periodic cleanup check completed');
-    }, 5 * 60 * 1000);
   }
 
   /**

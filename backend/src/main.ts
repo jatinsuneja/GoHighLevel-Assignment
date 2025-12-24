@@ -13,6 +13,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { SanitizePipe } from './common/pipes/sanitize.pipe';
+import { RedisIoAdapter } from './config/redis-io.adapter';
 
 /**
  * Bootstrap the NestJS application
@@ -100,6 +101,12 @@ async function bootstrap(): Promise<void> {
     new LoggingInterceptor(),     // Log request/response details
     new TransformInterceptor(),   // Transform responses to standard format
   );
+
+  // Set up Redis WebSocket adapter for horizontal scaling
+  const redisIoAdapter = new RedisIoAdapter(app, configService);
+  await redisIoAdapter.connectToRedis();
+  // Cast needed due to version mismatch between @nestjs/platform-socket.io v10 and @nestjs/core v11
+  app.useWebSocketAdapter(redisIoAdapter as any);
 
   // Start the application
   await app.listen(port);
