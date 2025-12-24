@@ -119,7 +119,7 @@ function handleSocketError(payload: SocketErrorPayload) {
     payload.message.includes('Not a participant')
   ) {
     setTimeout(() => {
-      roomStore.clearCurrentRoom()
+      roomStore.clearRoom()
       router.push('/')
     }, 2000)
   }
