@@ -1,5 +1,5 @@
 # Docker Compose Configuration
-# Anonymous Chat Application - Full Stack Development Environment
+# Anonymous Chat Application - Production Environment
 #
 # Services:
 #   - mongodb: MongoDB database for persistent storage
@@ -8,11 +8,11 @@
 #   - frontend: Vue 3 SPA served via Nginx
 #
 # Usage:
-#   Development: docker-compose up -d
-#   Production:  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#   Start:       docker-compose up -d
 #   Logs:        docker-compose logs -f [service]
 #   Stop:        docker-compose down
 #   Clean:       docker-compose down -v (removes volumes)
+#   Rebuild:     docker-compose up -d --build
 
 version: '3.8'
 
@@ -32,7 +32,7 @@ services:
       MONGO_INITDB_DATABASE: anonymous_chat
     volumes:
       - mongodb_data:/data/db
-      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     networks:
       - app-network
     healthcheck:
@@ -72,15 +72,15 @@ services:
     container_name: anon-chat-backend
     restart: unless-stopped
     ports:
-      - "4000:4000"
+      - "4000:3000"
     environment:
       NODE_ENV: production
-      PORT: 4000
+      PORT: 3000
+      API_PREFIX: api/v1
       MONGODB_URI: mongodb://admin:password123@mongodb:27017/anonymous_chat?authSource=admin
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      CORS_ORIGIN: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000,http://frontend:3000
     depends_on:
       mongodb:
         condition: service_healthy
@@ -89,7 +89,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -102,15 +102,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_URL: /api
-        VITE_SOCKET_URL: ""
     container_name: anon-chat-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - app-network
     healthcheck:

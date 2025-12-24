@@ -5,20 +5,21 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies for native modules
-RUN apk add --no-cache python3 make g++
+# Install pnpm and native module dependencies
+RUN corepack enable && corepack prepare pnpm@latest --activate && \
+    apk add --no-cache python3 make g++
 
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install all dependencies
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
 # Expose port
-EXPOSE 4000
+EXPOSE 3000
 
 # Start in development mode with hot reload
-CMD ["npm", "run", "start:dev"]
+CMD ["pnpm", "run", "start:dev"]

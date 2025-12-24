@@ -1,14 +1,61 @@
-# Docker Compose - Development Override
-# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Docker Compose - Development Environment
+# 
+# Usage: docker-compose -f docker-compose.dev.yml up -d
 #
-# Enables:
-#   - Volume mounts for hot reloading
+# Features:
+#   - Hot reloading for both frontend and backend
+#   - Volume mounts for live code changes
 #   - Development environment variables
-#   - Exposed debug ports
+#   - Debug-friendly configuration
 
 version: '3.8'
 
 services:
+  # ============================================
+  # MongoDB Database
+  # ============================================
+  mongodb:
+    image: mongo:7.0
+    container_name: anon-chat-mongodb-dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: anonymous_chat
+    volumes:
+      - mongodb_data_dev:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - app-network-dev
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================
+  # Redis Cache & Pub/Sub
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: anon-chat-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data_dev:/data
+    networks:
+      - app-network-dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ============================================
   # Backend with hot reload
   # ============================================
@@ -16,13 +63,29 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    container_name: anon-chat-backend-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
     volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - ./backend/src:/app/src
+      - ./backend/package.json:/app/package.json
+      # Don't mount node_modules - use container's version
     environment:
       NODE_ENV: development
-      DEBUG: "*"
-    command: npm run start:dev
+      PORT: 3000
+      API_PREFIX: api/v1
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/anonymous_chat?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network-dev
 
   # ============================================
   # Frontend with hot reload
@@ -31,10 +94,34 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
+    container_name: anon-chat-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      # Don't mount node_modules - use container's version
     environment:
-      VITE_API_URL: http://localhost:4000/api
-      VITE_SOCKET_URL: http://localhost:4000
-    command: npm run dev -- --host 0.0.0.0
+      VITE_SERVER_BASE_URL: http://localhost:3000
+    depends_on:
+      - backend
+    networks:
+      - app-network-dev
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  app-network-dev:
+    driver: bridge
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  mongodb_data_dev:
+    driver: local
+  redis_data_dev:
+    driver: local

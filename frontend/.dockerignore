@@ -22,11 +22,13 @@ dist
 # Testing
 coverage
 .nyc_output
-test
+e2e
 *.spec.ts
-jest.config.js
+vitest.config.ts
+playwright.config.ts
 
 # Docker
 Dockerfile*
 docker-compose*
 .dockerignore
+

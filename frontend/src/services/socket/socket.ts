@@ -11,14 +11,39 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>
 let socket: TypedSocket | null = null
 
 /**
+ * Get the WebSocket URL with correct protocol
+ */
+function getSocketUrl(): string {
+  if (typeof window === 'undefined') {
+    return 'http://localhost:3000'
+  }
+  
+  // In development with explicit server URL
+  if (import.meta.env.VITE_SERVER_BASE_URL) {
+    return import.meta.env.VITE_SERVER_BASE_URL
+  }
+  
+  // In development mode, use localhost
+  if (import.meta.env.DEV) {
+    return 'http://localhost:3000'
+  }
+  
+  // In production: construct URL with correct protocol
+  // https: -> wss:, http: -> ws:
+  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:'
+  return `${protocol}//${window.location.host}`
+}
+
+/**
  * Get or create the socket connection
- * Connects to default namespace (no custom namespace for simpler proxy setup)
  */
 export function getSocket(): TypedSocket {
   if (!socket) {
-    // In production, don't specify URL - Socket.IO will use current page's origin and protocol
-    // This ensures wss:// is used when page is loaded over https://
-    const socketOptions = {
+    const url = getSocketUrl()
+    console.log('getSessionId()', getSessionId())
+    console.log('[Socket] Connecting to:', url)
+    
+    socket = io(url, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       autoConnect: false,
@@ -28,18 +53,7 @@ export function getSocket(): TypedSocket {
       auth: {
         sessionId: getSessionId(),
       },
-    }
-
-    if (import.meta.env.PROD) {
-      // In production: don't pass URL, Socket.IO defaults to current origin with correct protocol
-      socket = io(socketOptions)
-    } else if (import.meta.env.VITE_SERVER_BASE_URL) {
-      // If explicit server URL is set
-      socket = io(import.meta.env.VITE_SERVER_BASE_URL, socketOptions)
-    } else {
-      // Development default
-      socket = io('http://localhost:3000', socketOptions)
-    }
+    })
   }
   return socket
 }

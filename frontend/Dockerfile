@@ -2,48 +2,29 @@
 # Multi-stage build for optimized production image
 
 # ============================================
-# Stage 1: Dependencies
-# ============================================
-FROM node:20-alpine AS deps
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci && \
-    npm cache clean --force
-
-# ============================================
-# Stage 2: Build
+# Stage 1: Build
 # ============================================
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
-# Build arguments for environment variables
-ARG VITE_API_URL=/api
-ARG VITE_SOCKET_URL
-
-# Set environment variables for build
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_SOCKET_URL=$VITE_SOCKET_URL
-
-# Build the application
-RUN npm run build
+# Build the application (production mode auto-detected)
+RUN pnpm run build
 
 # ============================================
-# Stage 3: Production with Nginx
+# Stage 2: Production with Nginx
 # ============================================
 FROM nginx:alpine AS runner
 

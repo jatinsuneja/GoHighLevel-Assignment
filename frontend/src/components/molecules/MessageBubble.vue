@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Message, ReactionType } from '@/types'
 import { Avatar } from '@/components/atoms'
 import { formatMessageTime } from '@/utils/formatters'
@@ -22,6 +22,9 @@ const emit = defineEmits<{
   removeReaction: [messageId: string, type: ReactionType]
 }>()
 
+// Track if actions are shown (for mobile tap)
+const showActions = ref(false)
+
 const formattedTime = computed(() => formatMessageTime(props.message.createdAt))
 
 const visibleReactions = computed(() =>
@@ -33,6 +36,13 @@ const deletionText = computed(() => {
   return `This message was deleted`
 })
 
+// Toggle actions visibility (for mobile)
+function toggleActions() {
+  if (!props.message.isDeleted) {
+    showActions.value = !showActions.value
+  }
+}
+
 function handleReaction(type: ReactionType) {
   const existing = props.message.reactions.find((r) => r.type === type)
   if (existing?.userReacted) {
@@ -40,6 +50,7 @@ function handleReaction(type: ReactionType) {
   } else {
     emit('react', props.message.messageId, type)
   }
+  showActions.value = false // Hide after action
 }
 
 function toggleReaction(type: ReactionType) {
@@ -49,6 +60,11 @@ function toggleReaction(type: ReactionType) {
   } else {
     emit('react', props.message.messageId, type)
   }
+}
+
+function handleDelete() {
+  emit('delete', props.message.messageId)
+  showActions.value = false
 }
 </script>
 
@@ -86,9 +102,10 @@ function toggleReaction(type: ReactionType) {
 
       <!-- Message bubble -->
       <div class="relative">
+        <!-- Tap on message to show/hide actions on mobile -->
         <div
           :class="[
-            'relative px-4 py-2 rounded-2xl',
+            'relative px-4 py-2 rounded-2xl cursor-pointer select-none',
             message.isDeleted
               ? 'bg-slate-100 text-slate-500 italic'
               : isOwn
@@ -98,6 +115,7 @@ function toggleReaction(type: ReactionType) {
               ? 'text-3xl bg-transparent !px-1 !py-0 border-none'
               : '',
           ]"
+          @click="toggleActions"
         >
           <p v-if="message.isDeleted" class="text-sm">
             {{ deletionText }}
@@ -107,14 +125,16 @@ function toggleReaction(type: ReactionType) {
           </p>
         </div>
 
-        <!-- Actions (visible on hover) -->
+        <!-- Actions (visible on hover for desktop, tap for mobile) -->
         <div
           v-if="!message.isDeleted"
           :class="[
-            'absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity',
+            'absolute top-1/2 -translate-y-1/2 transition-opacity z-10',
             'flex items-center gap-1 bg-white rounded-full shadow-md border border-slate-200 p-1',
             isOwn ? 'right-full mr-2' : 'left-full ml-2',
+            showActions ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto',
           ]"
+          :style="showActions ? 'pointer-events: auto' : ''"
         >
           <!-- Reaction Picker -->
           <ReactionPicker @select="handleReaction" />
@@ -124,7 +144,7 @@ function toggleReaction(type: ReactionType) {
             v-if="isOwn"
             class="p-1.5 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
             title="Delete message"
-            @click="emit('delete', message.messageId)"
+            @click.stop="handleDelete"
           >
             <svg
               class="w-4 h-4"
