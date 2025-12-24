@@ -375,9 +375,9 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # API proxy
+    # API proxy - maps /api/* to backend's /api/v1/*
     location /api/ {
-        proxy_pass http://localhost:3000/api/;
+        proxy_pass http://localhost:3000/api/v1/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
